@@ -156,39 +156,41 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
         num_piles = max(1, math.ceil(load_kn / pile_capacity))
         
         edge_clearance = 150
-        if num_piles == 1:
-            cap_l = pile_dia + (2 * edge_clearance)
-            cap_w = cap_l
-            mesh_x_len = (cap_l - 2*cover_fnd + 200) / 1000 
-            mesh_y_len = mesh_x_len
-            mesh_x_qty = math.ceil(cap_w / 150) + 1
-            mesh_y_qty = mesh_x_qty
-        else:
-            cap_l = min_spacing + pile_dia + (2 * edge_clearance)
-            cap_w = pile_dia + (2 * edge_clearance)
-            mesh_long_len = (cap_l - 2*cover_fnd + 200) / 1000
-            mesh_short_len = (cap_w - 2*cover_fnd + 200) / 1000
-            mesh_long_qty = math.ceil(cap_w / 150) + 1
-            mesh_short_qty = math.ceil(cap_l / 150) + 1
-
+        
         # 1. Piles
         total_piles = num_piles * qty
         pile_main_len = pile_depth + 0.5 
-        bbs_data.append({"Element": f"{row['ID']} - Piles Main", "Shape": "L", "Dia": 12, "Members": total_piles, "Bars/Mem": 6, "Total Bars": total_piles*6, "Cut Length (m)": pile_main_len, "Total Len (m)": total_piles*6*pile_main_len})
+        bbs_data.append({"Element": f"Pile {row['ID']} (D={int(pile_dia)}mm) - Main", "Shape": "L", "Dia": 12, "Members": total_piles, "Bars/Mem": 6, "Total Bars": total_piles*6, "Cut Length (m)": pile_main_len, "Total Len (m)": total_piles*6*pile_main_len})
         total_steel[12] += total_piles * 6 * pile_main_len
         
         spiral_length = (pile_depth / 0.15) * (math.pi * (pile_dia - 2*cover_fnd)/1000)
-        bbs_data.append({"Element": f"{row['ID']} - Pile Spiral", "Shape": r"\bigcirc", "Dia": 8, "Members": total_piles, "Bars/Mem": 1, "Total Bars": total_piles, "Cut Length (m)": round(spiral_length,2), "Total Len (m)": round(total_piles*spiral_length,2)})
+        bbs_data.append({"Element": f"Pile {row['ID']} (D={int(pile_dia)}mm) - Spiral", "Shape": r"\bigcirc", "Dia": 8, "Members": total_piles, "Bars/Mem": 1, "Total Bars": total_piles, "Cut Length (m)": round(spiral_length,2), "Total Len (m)": round(total_piles*spiral_length,2)})
         total_steel[8] += total_piles * spiral_length
         
         # 2. Pile Caps
         if num_piles == 1:
-            bbs_data.append({"Element": f"{row['ID']} - Cap Mesh X", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_x_qty, "Total Bars": qty*mesh_x_qty, "Cut Length (m)": mesh_x_len, "Total Len (m)": qty*mesh_x_qty*mesh_x_len})
-            bbs_data.append({"Element": f"{row['ID']} - Cap Mesh Y", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_y_qty, "Total Bars": qty*mesh_y_qty, "Cut Length (m)": mesh_y_len, "Total Len (m)": qty*mesh_y_qty*mesh_y_len})
+            cap_l = pile_dia + (2 * edge_clearance)
+            cap_w = cap_l
+            cap_d = 450
+            mesh_x_len = (cap_l - 2*cover_fnd + 200) / 1000 
+            mesh_y_len = mesh_x_len
+            mesh_x_qty = math.ceil(cap_w / 150) + 1
+            mesh_y_qty = mesh_x_qty
+            
+            bbs_data.append({"Element": f"Cap {row['ID']} ({int(cap_l)}x{int(cap_w)}x{int(cap_d)}) - Mesh X", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_x_qty, "Total Bars": qty*mesh_x_qty, "Cut Length (m)": mesh_x_len, "Total Len (m)": qty*mesh_x_qty*mesh_x_len})
+            bbs_data.append({"Element": f"Cap {row['ID']} ({int(cap_l)}x{int(cap_w)}x{int(cap_d)}) - Mesh Y", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_y_qty, "Total Bars": qty*mesh_y_qty, "Cut Length (m)": mesh_y_len, "Total Len (m)": qty*mesh_y_qty*mesh_y_len})
             total_steel[10] += (qty * mesh_x_qty * mesh_x_len) + (qty * mesh_y_qty * mesh_y_len)
         else:
-            bbs_data.append({"Element": f"{row['ID']} - Cap Short", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_short_qty, "Total Bars": qty*mesh_short_qty, "Cut Length (m)": mesh_short_len, "Total Len (m)": round(qty*mesh_short_qty*mesh_short_len, 2)})
-            bbs_data.append({"Element": f"{row['ID']} - Cap Long", "Shape": r"\sqcup", "Dia": 12, "Members": qty, "Bars/Mem": mesh_long_qty, "Total Bars": qty*mesh_long_qty, "Cut Length (m)": mesh_long_len, "Total Len (m)": round(qty*mesh_long_qty*mesh_long_len, 2)})
+            cap_l = min_spacing + pile_dia + (2 * edge_clearance)
+            cap_w = pile_dia + (2 * edge_clearance)
+            cap_d = 500
+            mesh_long_len = (cap_l - 2*cover_fnd + 200) / 1000
+            mesh_short_len = (cap_w - 2*cover_fnd + 200) / 1000
+            mesh_long_qty = math.ceil(cap_w / 150) + 1
+            mesh_short_qty = math.ceil(cap_l / 150) + 1
+            
+            bbs_data.append({"Element": f"Cap {row['ID']} ({int(cap_l)}x{int(cap_w)}x{int(cap_d)}) - Short", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_short_qty, "Total Bars": qty*mesh_short_qty, "Cut Length (m)": mesh_short_len, "Total Len (m)": round(qty*mesh_short_qty*mesh_short_len, 2)})
+            bbs_data.append({"Element": f"Cap {row['ID']} ({int(cap_l)}x{int(cap_w)}x{int(cap_d)}) - Long", "Shape": r"\sqcup", "Dia": 12, "Members": qty, "Bars/Mem": mesh_long_qty, "Total Bars": qty*mesh_long_qty, "Cut Length (m)": mesh_long_len, "Total Len (m)": round(qty*mesh_long_qty*mesh_long_len, 2)})
             total_steel[10] += (qty * mesh_short_qty * mesh_short_len)
             total_steel[12] += (qty * mesh_long_qty * mesh_long_len)
 
@@ -197,18 +199,18 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
         main_dia = int(row["Main Dia (mm)"])
         if main_dia > 0:
             main_len = 1.5 + 0.6 
-            bbs_data.append({"Element": f"Col {row['ID']} - Main", "Shape": "L", "Dia": main_dia, "Members": qty, "Bars/Mem": int(row["Main Qty"]), "Total Bars": qty*int(row["Main Qty"]), "Cut Length (m)": main_len, "Total Len (m)": round(qty*int(row["Main Qty"])*main_len, 2)})
+            bbs_data.append({"Element": f"Col {row['ID']} ({int(col_l)}x{int(col_b)}) - Main", "Shape": "L", "Dia": main_dia, "Members": qty, "Bars/Mem": int(row["Main Qty"]), "Total Bars": qty*int(row["Main Qty"]), "Cut Length (m)": main_len, "Total Len (m)": round(qty*int(row["Main Qty"])*main_len, 2)})
             total_steel[main_dia] += qty * int(row["Main Qty"]) * main_len
             
         sec_dia = int(row["Sec Dia (mm)"])
         if sec_dia > 0:
-            bbs_data.append({"Element": f"Col {row['ID']} - Sec", "Shape": "L", "Dia": sec_dia, "Members": qty, "Bars/Mem": int(row["Sec Qty"]), "Total Bars": qty*int(row["Sec Qty"]), "Cut Length (m)": main_len, "Total Len (m)": round(qty*int(row["Sec Qty"])*main_len, 2)})
+            bbs_data.append({"Element": f"Col {row['ID']} ({int(col_l)}x{int(col_b)}) - Sec", "Shape": "L", "Dia": sec_dia, "Members": qty, "Bars/Mem": int(row["Sec Qty"]), "Total Bars": qty*int(row["Sec Qty"]), "Cut Length (m)": main_len, "Total Len (m)": round(qty*int(row["Sec Qty"])*main_len, 2)})
             total_steel[sec_dia] += qty * int(row["Sec Qty"]) * main_len
 
         core_l = col_l - (2 * cover_col)
         core_b = col_b - (2 * cover_col)
         tie_cut_len = (2 * (core_l + core_b) + (24 * 8)) / 1000 
-        bbs_data.append({"Element": f"Col {row['ID']} - Ties", "Shape": r"\square", "Dia": 8, "Members": qty, "Bars/Mem": 10, "Total Bars": qty*10, "Cut Length (m)": round(tie_cut_len,2), "Total Len (m)": round(qty*10*tie_cut_len, 2)})
+        bbs_data.append({"Element": f"Col {row['ID']} ({int(col_l)}x{int(col_b)}) - Ties", "Shape": r"\square", "Dia": 8, "Members": qty, "Bars/Mem": 10, "Total Bars": qty*10, "Cut Length (m)": round(tie_cut_len,2), "Total Len (m)": round(qty*10*tie_cut_len, 2)})
         total_steel[8] += qty * 10 * tie_cut_len
 
     # --- Render BBS Data ---
