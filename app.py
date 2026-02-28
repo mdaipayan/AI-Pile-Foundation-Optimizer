@@ -2,6 +2,55 @@ import streamlit as st
 import pandas as pd
 import math
 import numpy as np
+import ezdxf
+import io
+
+def generate_cad_plan(cap_l_mm, cap_w_mm, col_l_mm, col_b_mm, pile_dia_mm, spacing_mm):
+    """Generates a 2D DXF CAD Plan for a Double Pile Cap."""
+    
+    # Create a new DXF document
+    doc = ezdxf.new('R2010')
+    msp = doc.modelspace()
+    
+    # Set up Layers
+    doc.layers.add("CONCRETE", color=7)  # White/Black
+    doc.layers.add("COLUMN", color=3)    # Green
+    doc.layers.add("PILES", color=1)     # Red
+    doc.layers.add("CENTERLINES", color=8, linetype="DASHED")
+
+    # Center Coordinates (0,0)
+    cx, cy = 0, 0
+    
+    # 1. Draw Pile Cap (Rectangle)
+    half_l, half_w = cap_l_mm / 2, cap_w_mm / 2
+    msp.add_lwpolyline([
+        (-half_l, -half_w), (half_l, -half_w), 
+        (half_l, half_w), (-half_l, half_w), 
+        (-half_l, -half_w)
+    ], dxfattribs={'layer': 'CONCRETE'})
+    
+    # 2. Draw Column in the Center
+    c_half_l, c_half_b = col_l_mm / 2, col_b_mm / 2
+    msp.add_lwpolyline([
+        (-c_half_l, -c_half_b), (c_half_l, -c_half_b), 
+        (c_half_l, c_half_b), (-c_half_l, c_half_b), 
+        (-c_half_l, -c_half_b)
+    ], dxfattribs={'layer': 'COLUMN'})
+    
+    # 3. Draw the Two Piles
+    pile_offset = spacing_mm / 2
+    msp.add_circle((-pile_offset, 0), radius=pile_dia_mm/2, dxfattribs={'layer': 'PILES'})
+    msp.add_circle((pile_offset, 0), radius=pile_dia_mm/2, dxfattribs={'layer': 'PILES'})
+    
+    # 4. Draw Centerlines
+    msp.add_line((-half_l - 200, 0), (half_l + 200, 0), dxfattribs={'layer': 'CENTERLINES'})
+    msp.add_line((-pile_offset, -half_w - 200), (-pile_offset, half_w + 200), dxfattribs={'layer': 'CENTERLINES'})
+    msp.add_line((pile_offset, -half_w - 200), (pile_offset, half_w + 200), dxfattribs={'layer': 'CENTERLINES'})
+    
+    # Save DXF to an in-memory string buffer so Streamlit can download it
+    buffer = io.StringIO()
+    doc.write(buffer)
+    return buffer.getvalue()
 
 st.set_page_config(page_title="AI Pile Foundation Optimizer", layout="wide")
 
@@ -360,3 +409,41 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
         type="primary"
     )
     st.caption("You can upload this `.tex` file directly to Overleaf or compile it with MiKTeX/TeXStudio to generate a perfectly formatted PDF document.")
+# ==========================================
+    # 6. DYNAMIC CAD (DXF) GENERATOR
+    # ==========================================
+    st.markdown("---")
+    st.subheader("📐 Export AutoCAD Drawings")
+    
+    # We will generate a CAD drawing for the heaviest footing type (F3/F4 Double Pile Cap)
+    # Re-calculate the winning dimensions for the double cap:
+    edge_clearance = 150
+    bulb_dia = 2.5 * best_profile['dia']
+    min_spacing = 1.5 * bulb_dia
+    
+    ai_cap_l = min_spacing + best_profile['dia'] + (2 * edge_clearance)
+    ai_cap_w = best_profile['dia'] + (2 * edge_clearance)
+    
+    # Generate the CAD file using our function
+    dxf_data = generate_cad_plan(
+        cap_l_mm=ai_cap_l, 
+        cap_w_mm=ai_cap_w, 
+        col_l_mm=500,  # Based on C3/C4
+        col_b_mm=280, 
+        pile_dia_mm=best_profile['dia'],
+        spacing_mm=min_spacing
+    )
+    
+    col_cad1, col_cad2 = st.columns([2,1])
+    with col_cad1:
+        st.info("The AI has dynamically generated a 2D AutoCAD Plan for the most critical Double-Pile Cap based on the optimized IS 2911 spacing parameters.")
+        
+    with col_cad2:
+        # Streamlit DXF Download Button
+        st.download_button(
+            label="🏗️ Download AutoCAD Plan (.dxf)",
+            data=dxf_data,
+            file_name="Optimized_Pile_Cap_Plan.dxf",
+            mime="application/dxf",
+            type="primary"
+        )
