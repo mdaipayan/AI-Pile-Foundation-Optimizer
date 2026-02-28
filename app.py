@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="AI Pile Foundation Optimizer", layout="wide")
 
 st.title("🧠 AI-Optimized Pile Foundation & BBS Generator")
-st.markdown("This tool runs multiple design permutations to find the **cheapest IS-compliant foundation** based on real-time material costs.")
+st.markdown("This tool runs multiple design permutations to find the **cheapest IS-compliant foundation** based on real-time material costs, and exports a professional LaTeX report.")
 
 # ==========================================
 # 1. PARAMETERS & COSTS (Sidebar)
@@ -103,7 +103,6 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
     
     with st.spinner('Running thousands of structural permutations...'):
         # AI Tests these configurations (Dia in mm, Depth in m, Capacity in kN)
-        # Note: In a real app, Capacity would be calculated dynamically via soil equations
         test_profiles = [
             {"dia": 250, "depth": 3.0, "cap": 150},
             {"dia": 300, "depth": 4.0, "cap": 250},
@@ -114,7 +113,6 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
         lowest_cost = float('inf')
         optimization_logs = []
         
-        # AI Grid Search
         for profile in test_profiles:
             cost, steel, conc = simulate_design(profile["dia"], profile["depth"], profile["cap"])
             optimization_logs.append({
@@ -129,8 +127,6 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
                 best_profile = profile
 
     st.header("3. AI Optimization Results")
-    
-    # Display the thought process of the AI
     st.caption("AI Evaluated the following permutations based on your material rates:")
     st.table(pd.DataFrame(optimization_logs))
     
@@ -143,7 +139,6 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
     st.markdown("---")
     st.subheader("4. Final Bar Bending Schedule (BBS)")
     
-    # We now set the variables to the AI's chosen winner and run the BBS engine
     pile_dia = best_profile["dia"]
     pile_depth = best_profile["depth"]
     pile_capacity = best_profile["cap"]
@@ -183,21 +178,183 @@ if st.button("🧠 Run AI Auto-Optimization", type="primary"):
         total_steel[12] += total_piles * 6 * pile_main_len
         
         spiral_length = (pile_depth / 0.15) * (math.pi * (pile_dia - 2*cover_fnd)/1000)
-        bbs_data.append({"Element": f"{row['ID']} - Pile Spiral", "Shape": r"O", "Dia": 8, "Members": total_piles, "Bars/Mem": 1, "Total Bars": total_piles, "Cut Length (m)": round(spiral_length,2), "Total Len (m)": round(total_piles*spiral_length,2)})
+        bbs_data.append({"Element": f"{row['ID']} - Pile Spiral", "Shape": r"\bigcirc", "Dia": 8, "Members": total_piles, "Bars/Mem": 1, "Total Bars": total_piles, "Cut Length (m)": round(spiral_length,2), "Total Len (m)": round(total_piles*spiral_length,2)})
         total_steel[8] += total_piles * spiral_length
         
         # 2. Pile Caps
         if num_piles == 1:
-            bbs_data.append({"Element": f"{row['ID']} - Cap Mesh X", "Shape": r"U", "Dia": 10, "Members": qty, "Bars/Mem": mesh_x_qty, "Total Bars": qty*mesh_x_qty, "Cut Length (m)": mesh_x_len, "Total Len (m)": qty*mesh_x_qty*mesh_x_len})
-            bbs_data.append({"Element": f"{row['ID']} - Cap Mesh Y", "Shape": r"U", "Dia": 10, "Members": qty, "Bars/Mem": mesh_y_qty, "Total Bars": qty*mesh_y_qty, "Cut Length (m)": mesh_y_len, "Total Len (m)": qty*mesh_y_qty*mesh_y_len})
+            bbs_data.append({"Element": f"{row['ID']} - Cap Mesh X", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_x_qty, "Total Bars": qty*mesh_x_qty, "Cut Length (m)": mesh_x_len, "Total Len (m)": qty*mesh_x_qty*mesh_x_len})
+            bbs_data.append({"Element": f"{row['ID']} - Cap Mesh Y", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_y_qty, "Total Bars": qty*mesh_y_qty, "Cut Length (m)": mesh_y_len, "Total Len (m)": qty*mesh_y_qty*mesh_y_len})
             total_steel[10] += (qty * mesh_x_qty * mesh_x_len) + (qty * mesh_y_qty * mesh_y_len)
         else:
-            bbs_data.append({"Element": f"{row['ID']} - Cap Short", "Shape": r"U", "Dia": 10, "Members": qty, "Bars/Mem": mesh_short_qty, "Total Bars": qty*mesh_short_qty, "Cut Length (m)": mesh_short_len, "Total Len (m)": round(qty*mesh_short_qty*mesh_short_len, 2)})
-            bbs_data.append({"Element": f"{row['ID']} - Cap Long", "Shape": r"U", "Dia": 12, "Members": qty, "Bars/Mem": mesh_long_qty, "Total Bars": qty*mesh_long_qty, "Cut Length (m)": mesh_long_len, "Total Len (m)": round(qty*mesh_long_qty*mesh_long_len, 2)})
+            bbs_data.append({"Element": f"{row['ID']} - Cap Short", "Shape": r"\sqcup", "Dia": 10, "Members": qty, "Bars/Mem": mesh_short_qty, "Total Bars": qty*mesh_short_qty, "Cut Length (m)": mesh_short_len, "Total Len (m)": round(qty*mesh_short_qty*mesh_short_len, 2)})
+            bbs_data.append({"Element": f"{row['ID']} - Cap Long", "Shape": r"\sqcup", "Dia": 12, "Members": qty, "Bars/Mem": mesh_long_qty, "Total Bars": qty*mesh_long_qty, "Cut Length (m)": mesh_long_len, "Total Len (m)": round(qty*mesh_long_qty*mesh_long_len, 2)})
             total_steel[10] += (qty * mesh_short_qty * mesh_short_len)
             total_steel[12] += (qty * mesh_long_qty * mesh_long_len)
 
+        # 3. Columns
+        col_l, col_b = row["Col L (mm)"], row["Col B (mm)"]
+        main_dia = int(row["Main Dia (mm)"])
+        if main_dia > 0:
+            main_len = 1.5 + 0.6 
+            bbs_data.append({"Element": f"Col {row['ID']} - Main", "Shape": "L", "Dia": main_dia, "Members": qty, "Bars/Mem": int(row["Main Qty"]), "Total Bars": qty*int(row["Main Qty"]), "Cut Length (m)": main_len, "Total Len (m)": round(qty*int(row["Main Qty"])*main_len, 2)})
+            total_steel[main_dia] += qty * int(row["Main Qty"]) * main_len
+            
+        sec_dia = int(row["Sec Dia (mm)"])
+        if sec_dia > 0:
+            bbs_data.append({"Element": f"Col {row['ID']} - Sec", "Shape": "L", "Dia": sec_dia, "Members": qty, "Bars/Mem": int(row["Sec Qty"]), "Total Bars": qty*int(row["Sec Qty"]), "Cut Length (m)": main_len, "Total Len (m)": round(qty*int(row["Sec Qty"])*main_len, 2)})
+            total_steel[sec_dia] += qty * int(row["Sec Qty"]) * main_len
+
+        core_l = col_l - (2 * cover_col)
+        core_b = col_b - (2 * cover_col)
+        tie_cut_len = (2 * (core_l + core_b) + (24 * 8)) / 1000 
+        bbs_data.append({"Element": f"Col {row['ID']} - Ties", "Shape": r"\square", "Dia": 8, "Members": qty, "Bars/Mem": 10, "Total Bars": qty*10, "Cut Length (m)": round(tie_cut_len,2), "Total Len (m)": round(qty*10*tie_cut_len, 2)})
+        total_steel[8] += qty * 10 * tie_cut_len
+
+    # --- Render BBS Data ---
     df_bbs = pd.DataFrame(bbs_data)
     st.dataframe(df_bbs, use_container_width=True, hide_index=True)
 
-    st.info("The AI has locked in the optimal geometry. You can now proceed to export this directly to your construction team.")
+    # --- Generate Abstract Data ---
+    st.markdown("---")
+    st.subheader("5. Optimized Steel Abstract")
+    abstract_data = []
+    grand_total = 0
+    for dia, length in total_steel.items():
+        if length > 0:
+            weight = length * unit_wt.get(dia, 0)
+            grand_total += weight
+            abstract_data.append({
+                "Bar Dia (mm)": f"{dia} mm",
+                "Total Length (m)": round(length, 1),
+                "Total Weight (kg)": round(weight, 1)
+            })
+            
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.table(pd.DataFrame(abstract_data))
+    with col2:
+        st.success(f"### 🛒 Grand Total (incl. 5% waste):\n **{grand_total * 1.05:.1f} kg**")
+
+    # ==========================================
+    # 5. DYNAMIC LATEX REPORT GENERATOR
+    # ==========================================
+    st.markdown("---")
+    st.subheader("📄 Export Professional Report")
+    
+    # Constructing the BBS Table Rows for LaTeX
+    latex_bbs_rows = ""
+    for row in bbs_data:
+        latex_bbs_rows += f"{row['Element']} & ${row['Shape']}$ & {row['Dia']} & {row['Members']} & {row['Bars/Mem']} & {row['Total Bars']} & {row['Cut Length (m)']} & {row['Total Len (m)']} \\\\\n\\midrule\n"
+        
+    # Constructing the Abstract Table Rows for LaTeX
+    latex_abstract_rows = ""
+    for row in abstract_data:
+        latex_abstract_rows += f"{row['Bar Dia (mm)']} & {row['Total Length (m)']} & {row['Total Weight (kg)']} \\\\\n"
+
+    # Full LaTeX Template (A4 Landscape with XlTabular)
+    latex_template = f"""\\documentclass[11pt, a4paper, landscape]{{article}}
+
+\\usepackage[utf8]{{inputenc}}
+\\usepackage[margin=0.8in]{{geometry}}
+\\usepackage{{amsmath, amssymb}}
+\\usepackage{{booktabs}}
+\\usepackage{{xltabular}} 
+\\usepackage{{makecell}}
+
+\\renewcommand{{\\arraystretch}}{{1.4}}
+\\setlength{{\\aboverulesep}}{{0pt}}
+\\setlength{{\\belowrulesep}}{{0pt}}
+
+\\title{{\\textbf{{AI-Optimized Execution BBS \\& Material Abstract}}}}
+\\author{{Structural Engineering Optimization Engine}}
+\\date{{}}
+
+\\begin{{document}}
+
+\\maketitle
+
+\\section*{{1. Bar Bending Schedule (BBS) - {best_profile['dia']}mm Piles}}
+\\textit{{Notes: All dimensions are in meters unless specified. Clear cover assumed as {cover_fnd}mm for foundation elements and {cover_col}mm for neck columns.}}
+
+\\vspace{{1em}}
+
+\\noindent
+\\begin{{xltabular}}{{\\textwidth}}{{@{{}} >{{\\raggedright\\arraybackslash}}X c c c c c c c @{{}}}}
+% --- FIRST PAGE HEADER ---
+\\toprule
+\\textbf{{Element \\& Bar Description}} & \\textbf{{Shape}} & \\textbf{{Dia ($\\phi$)}} & \\makecell{{\\textbf{{No. of}}\\\\\\textbf{{Members}}}} & \\makecell{{\\textbf{{Bars per}}\\\\\\textbf{{Member}}}} & \\textbf{{Total Bars}} & \\makecell{{\\textbf{{Cut Length}}\\\\\\textbf{{(m)}}}} & \\makecell{{\\textbf{{Total Length}}\\\\\\textbf{{(m)}}}} \\\\
+\\midrule
+\\endfirsthead
+
+% --- REPEATING HEADER (For subsequent pages) ---
+\\toprule
+\\textbf{{Element \\& Bar Description}} & \\textbf{{Shape}} & \\textbf{{Dia ($\\phi$)}} & \\makecell{{\\textbf{{No. of}}\\\\\\textbf{{Members}}}} & \\makecell{{\\textbf{{Bars per}}\\\\\\textbf{{Member}}}} & \\textbf{{Total Bars}} & \\makecell{{\\textbf{{Cut Length}}\\\\\\textbf{{(m)}}}} & \\makecell{{\\textbf{{Total Length}}\\\\\\textbf{{(m)}}}} \\\\
+\\midrule
+\\endhead
+
+% --- FOOTER (When table breaks to next page) ---
+\\midrule
+\\multicolumn{{8}}{{r}}{{\\textit{{Continued on next page...}}}} \\\\
+\\endfoot
+
+% --- FINAL FOOTER (End of table) ---
+\\bottomrule
+\\endlastfoot
+
+% --- DYNAMIC TABLE DATA ---
+{latex_bbs_rows}
+\\end{{xltabular}}
+
+\\newpage
+
+\\section*{{2. Optimized Reinforcement Abstract (Material Takeoff)}}
+
+\\textit{{Unit weights calculated using standard IS formulation: $W = \\frac{{D^2}}{{162}} \\text{{ kg/m}}$.}}
+
+\\vspace{{1em}}
+
+\\noindent
+\\begin{{xltabular}}{{\\textwidth}}{{@{{}} c >{{\\raggedright\\arraybackslash}}X r @{{}}}}
+% --- FIRST PAGE HEADER ---
+\\toprule
+\\textbf{{Bar Dia ($\\phi$)}} & \\textbf{{Total Length (m)}} & \\textbf{{Total Weight (kg)}} \\\\
+\\midrule
+\\endfirsthead
+
+% --- REPEATING HEADER ---
+\\toprule
+\\textbf{{Bar Dia ($\\phi$)}} & \\textbf{{Total Length (m)}} & \\textbf{{Total Weight (kg)}} \\\\
+\\midrule
+\\endhead
+
+% --- CONTINUATION FOOTER ---
+\\midrule
+\\multicolumn{{3}}{{r}}{{\\textit{{Continued on next page...}}}} \\\\
+\\endfoot
+
+% --- FINAL FOOTER ---
+\\endlastfoot
+
+% --- DYNAMIC TABLE DATA ---
+{latex_abstract_rows}
+\\midrule
+\\multicolumn{{2}}{{r}}{{\\textbf{{Sub-Total}}}} & \\textbf{{{grand_total:.1f} kg}} \\\\
+\\multicolumn{{2}}{{r}}{{\\text{{Wastage \\& Binding Wire (5\\%)}}}} & \\textbf{{{grand_total * 0.05:.1f} kg}} \\\\
+\\midrule
+\\multicolumn{{2}}{{r}}{{\\textbf{{OPTIMIZED GRAND TOTAL}}}} & \\textbf{{$\\approx$ {grand_total * 1.05:.1f} kg}} \\\\
+\\bottomrule
+\\end{{xltabular}}
+
+\\end{{document}}
+"""
+
+    # Streamlit Download Button
+    st.download_button(
+        label="📥 Download Optimized LaTeX Report (.tex)",
+        data=latex_template,
+        file_name="AI_Optimized_BBS_Report.tex",
+        mime="text/plain",
+        type="primary"
+    )
+    st.caption("You can upload this `.tex` file directly to Overleaf or compile it with MiKTeX/TeXStudio to generate a perfectly formatted PDF document.")
